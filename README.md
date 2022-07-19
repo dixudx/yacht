@@ -5,7 +5,7 @@
 ![GoVersion](https://img.shields.io/github/go-mod/go-version/dixudx/yacht)
 [![Go Report Card](https://goreportcard.com/badge/github.com/dixudx/yacht)](https://goreportcard.com/report/github.com/dixudx/yacht)
 ![build](https://github.com/dixudx/yacht/actions/workflows/ci.yml/badge.svg)
-[![Version](https://img.shields.io/github/v/release/dixudx/yacht)](https://github.com/dixudx/yacht/releases)
+[![Version](https://img.shields.io/github/v/tag/dixudx/yacht)](https://github.com/dixudx/yacht/tags)
 [![codecov](https://codecov.io/gh/dixudx/yacht/branch/main/graph/badge.svg)](https://codecov.io/gh/dixudx/yacht)
 
 ---
