@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -37,28 +38,9 @@ func main() {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Hour*12)
 	nsLister := kubeInformerFactory.Core().V1().Namespaces().Lister()
 
-	// 1. create a controller for namespaces and use lease for leader election
+	// 1. create a controller for namespaces and set enqueueFilterFunc
 	namespaceController := yacht.NewController("namespaces").
 		WithWorkers(2).
-		WithLeaderElection(utils.NewLeaseLock(
-			"yacht-lease-demo",
-			"default",
-			"my-uuid", // TODO: we can generate a random uuid
-			kubeClient.CoordinationV1(),
-		),
-			15*time.Second,
-			10*time.Second,
-			2*time.Second,
-		)
-
-	// 2. add event handler for namespaces on the addition/update/deletion
-	kubeInformerFactory.Core().V1().Namespaces().Informer().AddEventHandler(namespaceController.DefaultResourceEventHandlerFuncs())
-
-	// 3. start the informer factory
-	kubeInformerFactory.Start(ctx.Done())
-
-	// 4. add a handlerFunc and run the controller
-	namespaceController.WithCacheSynced(kubeInformerFactory.Core().V1().Namespaces().Informer().HasSynced).
 		WithHandlerFunc(func(key interface{}) (requeueAfter *time.Duration, err error) {
 			// We can use "WithEnqueueFunc" to set our own enqueueFunc, otherwise default namespacedKey will be used
 			// Convert the namespace/name string into a distinct namespace and name
@@ -77,5 +59,23 @@ func main() {
 			return nil, nil
 
 		}).
+		WithEnqueueFilterFunc(func(oldObj, newObj interface{}) (bool, error) {
+			// here we want to filter out the resource
+			// TODO: we can add our real logics here
+			ns := oldObj.(*corev1.Namespace)
+			if ns.DeletionTimestamp != nil {
+				return false, nil
+			}
+			return true, nil
+		})
+
+	// 2. add event handler for namespaces on the addition/update/deletion
+	kubeInformerFactory.Core().V1().Namespaces().Informer().AddEventHandler(namespaceController.DefaultResourceEventHandlerFuncs())
+
+	// 3. start the informer factory
+	kubeInformerFactory.Start(ctx.Done())
+
+	// 4. add a handlerFunc and run the controller
+	namespaceController.WithCacheSynced(kubeInformerFactory.Core().V1().Namespaces().Informer().HasSynced).
 		Run(context.TODO())
 }

@@ -37,17 +37,19 @@ func main() {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Hour*12)
 	nsLister := kubeInformerFactory.Core().V1().Namespaces().Lister()
 
-	// 1. create a controller for namespaces
-	namespaceController := yacht.NewController("namespaces").WithWorkers(2)
-
-	// 2. add event handler for namespaces on the addition/update/deletion
-	kubeInformerFactory.Core().V1().Namespaces().Informer().AddEventHandler(namespaceController.DefaultResourceEventHandlerFuncs())
-
-	// 3. start the informer factory
-	kubeInformerFactory.Start(ctx.Done())
-
-	// 4. add a handlerFunc and run the controller
-	namespaceController.WithCacheSynced(kubeInformerFactory.Core().V1().Namespaces().Informer().HasSynced).
+	// 1. create a controller for namespaces and use lease for leader election
+	namespaceController := yacht.NewController("namespaces").
+		WithWorkers(2).
+		WithLeaderElection(utils.NewLeaseLock(
+			"yacht-lease-demo",
+			"default",
+			"my-uuid", // TODO: we can generate a random uuid
+			kubeClient.CoordinationV1(),
+		),
+			15*time.Second,
+			10*time.Second,
+			2*time.Second,
+		).
 		WithHandlerFunc(func(key interface{}) (requeueAfter *time.Duration, err error) {
 			// We can use "WithEnqueueFunc" to set our own enqueueFunc, otherwise default namespacedKey will be used
 			// Convert the namespace/name string into a distinct namespace and name
@@ -65,6 +67,15 @@ func main() {
 			klog.Infof("[mock] successfully processing namespace %s", ns.Name)
 			return nil, nil
 
-		}).
+		})
+
+	// 2. add event handler for namespaces on the addition/update/deletion
+	kubeInformerFactory.Core().V1().Namespaces().Informer().AddEventHandler(namespaceController.DefaultResourceEventHandlerFuncs())
+
+	// 3. start the informer factory
+	kubeInformerFactory.Start(ctx.Done())
+
+	// 4. add a handlerFunc and run the controller
+	namespaceController.WithCacheSynced(kubeInformerFactory.Core().V1().Namespaces().Informer().HasSynced).
 		Run(context.TODO())
 }

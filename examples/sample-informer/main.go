@@ -4,13 +4,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/tools/cache"
 	"os"
 	"time"
 
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	"github.com/dixudx/yacht"
@@ -38,16 +38,8 @@ func main() {
 	nsLister := kubeInformerFactory.Core().V1().Namespaces().Lister()
 
 	// 1. create a controller for namespaces
-	namespaceController := yacht.NewController("namespaces").WithWorkers(2)
-
-	// 2. add event handler for namespaces on the addition/update/deletion
-	kubeInformerFactory.Core().V1().Namespaces().Informer().AddEventHandler(namespaceController.DefaultResourceEventHandlerFuncs())
-
-	// 3. start the informer factory
-	kubeInformerFactory.Start(ctx.Done())
-
-	// 4. add a handlerFunc and run the controller
-	namespaceController.WithCacheSynced(kubeInformerFactory.Core().V1().Namespaces().Informer().HasSynced).
+	namespaceController := yacht.NewController("namespaces").
+		WithWorkers(2).
 		WithHandlerFunc(func(key interface{}) (requeueAfter *time.Duration, err error) {
 			// We can use "WithEnqueueFunc" to set our own enqueueFunc, otherwise default namespacedKey will be used
 			// Convert the namespace/name string into a distinct namespace and name
@@ -65,6 +57,15 @@ func main() {
 			klog.Infof("[mock] successfully processing namespace %s", ns.Name)
 			return nil, nil
 
-		}).
+		})
+
+	// 2. add event handler for namespaces on the addition/update/deletion
+	kubeInformerFactory.Core().V1().Namespaces().Informer().AddEventHandler(namespaceController.DefaultResourceEventHandlerFuncs())
+
+	// 3. start the informer factory
+	kubeInformerFactory.Start(ctx.Done())
+
+	// 4. run the controller
+	namespaceController.WithCacheSynced(kubeInformerFactory.Core().V1().Namespaces().Informer().HasSynced).
 		Run(context.TODO())
 }
