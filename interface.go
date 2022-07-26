@@ -18,3 +18,5 @@ type Interface interface {
 type HandlerFunc func(key interface{}) (requeueAfter *time.Duration, err error)
 
 type EnqueueFunc func(obj interface{}) (interface{}, error)
+
+type EnqueueFilterFunc func(oldObj, newObj interface{}) (bool, error)

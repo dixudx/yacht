@@ -14,6 +14,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	utilpointer "k8s.io/utils/pointer"
+
+	"github.com/dixudx/yacht/utils"
 )
 
 type Controller struct {
@@ -23,6 +25,8 @@ type Controller struct {
 	workers *int
 	// enqueueFunc defines the function to enqueue the work item
 	enqueueFunc EnqueueFunc
+	// enqueueFilterFunc defines the filter function before enqueueing the work item
+	enqueueFilterFunc EnqueueFilterFunc
 	// workqueue is a rate limited work queue.
 	workqueue workqueue.RateLimitingInterface
 	// informersSynced records a group of cacheSyncs
@@ -60,6 +64,18 @@ func (c *Controller) WithWorkers(workers int) *Controller {
 	return c
 }
 
+// WithEnqueueFilterFunc sets customize enqueueFilterFunc
+func (c *Controller) WithEnqueueFilterFunc(enqueueFilterFunc EnqueueFilterFunc) *Controller {
+	if c.runFlag && c.enqueueFunc != nil {
+		panic(fmt.Errorf("can not mutate enqueueFunc when controller %s is running", c.name))
+	}
+
+	if enqueueFilterFunc != nil {
+		c.enqueueFilterFunc = enqueueFilterFunc
+	}
+	return c
+}
+
 // WithEnqueueFunc sets customize enqueueFunc
 func (c *Controller) WithEnqueueFunc(enqueueFunc EnqueueFunc) *Controller {
 	if c.runFlag && c.enqueueFunc != nil {
@@ -70,6 +86,59 @@ func (c *Controller) WithEnqueueFunc(enqueueFunc EnqueueFunc) *Controller {
 		c.enqueueFunc = enqueueFunc
 	}
 	return c
+}
+
+func (c *Controller) DefaultResourceEventHandlerFuncs() cache.ResourceEventHandlerFuncs {
+	return cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			if c.applyEnqueueFilterFunc(obj, nil, cache.Added) {
+				c.Enqueue(obj)
+			}
+
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			if c.applyEnqueueFilterFunc(oldObj, newObj, cache.Updated) {
+				c.Enqueue(newObj)
+			}
+		},
+		DeleteFunc: func(obj interface{}) {
+			if c.applyEnqueueFilterFunc(obj, nil, cache.Deleted) {
+				c.Enqueue(obj)
+			}
+		},
+	}
+}
+
+func (c *Controller) applyEnqueueFilterFunc(oldObj, newObj interface{}, operation cache.DeltaType) bool {
+	if c.enqueueFilterFunc == nil {
+		utils.DepthLogging(nil, "info", fmt.Sprintf("[%s] enqueue resource", operation), oldObj)
+		return true
+	}
+
+	var err error
+	var ok bool
+	switch operation {
+	case cache.Added, cache.Deleted:
+		ok, err = c.enqueueFilterFunc(oldObj, nil)
+	case cache.Updated:
+		ok, err = c.enqueueFilterFunc(oldObj, newObj)
+	default:
+		utils.DepthLogging(nil, "error", fmt.Sprintf("[%s] unexpected resource event type", operation), oldObj)
+		return false
+	}
+
+	if err != nil {
+		utils.DepthLogging(err, "error", fmt.Sprintf("[%s] failed to apply enqueueFilterFunc", operation), oldObj)
+		return false
+	}
+
+	if !ok {
+		utils.DepthLogging(nil, "warning", fmt.Sprintf("[%s] not enqueue resource", operation), oldObj)
+		return false
+	}
+
+	utils.DepthLogging(nil, "info", fmt.Sprintf("[%s] enqueue resource", operation), oldObj)
+	return true
 }
 
 // WithHandlerFunc sets a handler function to process the work item off the work queue
