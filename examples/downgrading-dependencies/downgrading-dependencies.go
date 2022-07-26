@@ -20,12 +20,15 @@ import (
 func main() {
 	klog.InitFlags(flag.CommandLine)
 	defer klog.Flush()
+
+	var kubeconfig string
+	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.Parse()
 
 	ctx := context.TODO()
 
 	// 0. load kubeconfig and create clientset/informers/listers
-	config, err := utils.LoadsKubeConfig("") // TODO: we need to use an explicit configfile when running locally
+	config, err := utils.LoadsKubeConfig(kubeconfig) // TODO: we need to use an explicit configfile when running locally
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -38,20 +41,7 @@ func main() {
 	namespaceController := yacht.NewController("namespaces").WithWorkers(2)
 
 	// 2. add event handler for namespaces on the addition/update/deletion
-	kubeInformerFactory.Core().V1().Namespaces().Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			// TODO: we can add log and checks here to determine whether we should enqueue the object
-			namespaceController.Enqueue(obj)
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			// TODO: we can add log and checks here to determine whether we should enqueue the object
-			namespaceController.Enqueue(newObj)
-		},
-		DeleteFunc: func(obj interface{}) {
-			// TODO: we can add log and checks here to determine whether we should enqueue the object
-			namespaceController.Enqueue(obj)
-		},
-	})
+	kubeInformerFactory.Core().V1().Namespaces().Informer().AddEventHandler(namespaceController.DefaultResourceEventHandlerFuncs())
 
 	// 3. start the informer factory
 	kubeInformerFactory.Start(ctx.Done())

@@ -3,7 +3,7 @@ module github.com/dixudx/yacht/examples
 go 1.17
 
 require (
-	github.com/dixudx/yacht v0.1.0
+	github.com/dixudx/yacht v0.2.0
 	k8s.io/apimachinery v0.23.1
 	k8s.io/client-go v0.23.1
 	k8s.io/klog/v2 v2.30.0
