@@ -56,7 +56,7 @@ func NewController(name string) *Controller {
 
 // WithWorkers sets the number of workers to process work items off work queue
 func (c *Controller) WithWorkers(workers int) *Controller {
-	if c.runFlag && c.workers != nil {
+	if c.runFlag {
 		panic(fmt.Errorf("can not mutate workers when controller %s is running", c.name))
 	}
 
@@ -66,19 +66,17 @@ func (c *Controller) WithWorkers(workers int) *Controller {
 
 // WithEnqueueFilterFunc sets customize enqueueFilterFunc
 func (c *Controller) WithEnqueueFilterFunc(enqueueFilterFunc EnqueueFilterFunc) *Controller {
-	if c.runFlag && c.enqueueFunc != nil {
-		panic(fmt.Errorf("can not mutate enqueueFunc when controller %s is running", c.name))
+	if c.runFlag {
+		panic(fmt.Errorf("can not mutate enqueueFilterFunc when controller %s is running", c.name))
 	}
 
-	if enqueueFilterFunc != nil {
-		c.enqueueFilterFunc = enqueueFilterFunc
-	}
+	c.enqueueFilterFunc = enqueueFilterFunc
 	return c
 }
 
 // WithEnqueueFunc sets customize enqueueFunc
 func (c *Controller) WithEnqueueFunc(enqueueFunc EnqueueFunc) *Controller {
-	if c.runFlag && c.enqueueFunc != nil {
+	if c.runFlag {
 		panic(fmt.Errorf("can not mutate enqueueFunc when controller %s is running", c.name))
 	}
 
@@ -143,7 +141,7 @@ func (c *Controller) applyEnqueueFilterFunc(oldObj, newObj interface{}, operatio
 
 // WithHandlerFunc sets a handler function to process the work item off the work queue
 func (c *Controller) WithHandlerFunc(handlerFunc HandlerFunc) *Controller {
-	if c.runFlag && c.handlerFunc != nil {
+	if c.runFlag {
 		panic(fmt.Errorf("can not mutate handlerFunc when controller %s is running", c.name))
 	}
 
@@ -155,7 +153,7 @@ func (c *Controller) WithHandlerFunc(handlerFunc HandlerFunc) *Controller {
 
 // WithLeaderElection uses leader election to get the lock
 func (c *Controller) WithLeaderElection(leaseLock rl.Interface, leaseDuration, renewDeadline, retryPeriod time.Duration) *Controller {
-	if c.runFlag && c.le != nil {
+	if c.runFlag {
 		panic(fmt.Errorf("can not mutate leaderElection when controller %s is running", c.name))
 	}
 
