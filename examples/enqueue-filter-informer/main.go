@@ -77,5 +77,5 @@ func main() {
 
 	// 4. add a handlerFunc and run the controller
 	namespaceController.WithCacheSynced(kubeInformerFactory.Core().V1().Namespaces().Informer().HasSynced).
-		Run(context.TODO())
+		Run(ctx)
 }

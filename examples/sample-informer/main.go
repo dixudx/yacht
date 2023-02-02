@@ -67,5 +67,5 @@ func main() {
 
 	// 4. run the controller
 	namespaceController.WithCacheSynced(kubeInformerFactory.Core().V1().Namespaces().Informer().HasSynced).
-		Run(context.TODO())
+		Run(ctx)
 }
