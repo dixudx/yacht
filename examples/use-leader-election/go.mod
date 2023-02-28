@@ -1,6 +1,6 @@
-module github.com/dixudx/yacht/examples
+module github.com/dixudx/yacht/examples/use-leader-election
 
-go 1.18
+go 1.19
 
 require (
 	github.com/dixudx/yacht v0.3.0
