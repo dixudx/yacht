@@ -89,7 +89,7 @@ func (c *Controller) WithEnqueueFunc(enqueueFunc EnqueueFunc) *Controller {
 func (c *Controller) DefaultResourceEventHandlerFuncs() cache.ResourceEventHandlerFuncs {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			if c.applyEnqueueFilterFunc(obj, nil, cache.Added) {
+			if c.applyEnqueueFilterFunc(nil, obj, cache.Added) {
 				c.Enqueue(obj)
 			}
 
@@ -109,14 +109,20 @@ func (c *Controller) DefaultResourceEventHandlerFuncs() cache.ResourceEventHandl
 
 func (c *Controller) applyEnqueueFilterFunc(oldObj, newObj interface{}, operation cache.DeltaType) bool {
 	if c.enqueueFilterFunc == nil {
-		utils.DepthLogging(nil, "info", fmt.Sprintf("[%s] enqueue resource", operation), oldObj)
+		obj := oldObj
+		if obj == nil {
+			obj = newObj
+		}
+		utils.DepthLogging(nil, "info", fmt.Sprintf("[%s] enqueue resource", operation), obj)
 		return true
 	}
 
 	var err error
 	var ok bool
 	switch operation {
-	case cache.Added, cache.Deleted:
+	case cache.Added:
+		ok, err = c.enqueueFilterFunc(nil, newObj)
+	case cache.Deleted:
 		ok, err = c.enqueueFilterFunc(oldObj, nil)
 	case cache.Updated:
 		ok, err = c.enqueueFilterFunc(oldObj, newObj)
