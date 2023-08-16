@@ -3,11 +3,6 @@
 fmt:
 	@find . -type f -name '*.go'| grep -v "/vendor/" | xargs gofmt -w -s
 
-# Run go vet against code
-.PHONY: vet
-vet:
-	go vet ./...
-
 # Run golang lint against code
 .PHONY: lint
 lint: golangci-lint
