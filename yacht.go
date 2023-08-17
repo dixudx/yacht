@@ -27,8 +27,8 @@ type Controller struct {
 	enqueueFunc EnqueueFunc
 	// enqueueFilterFunc defines the filter function before enqueueing the work item
 	enqueueFilterFunc EnqueueFilterFunc
-	// workqueue is a rate limited work queue.
-	workqueue workqueue.RateLimitingInterface
+	// queue is a rate limited work queue.
+	queue workqueue.RateLimitingInterface
 	// informersSynced records a group of cacheSyncs
 	// The workers will not start working before all the caches are synced successfully
 	informersSynced []cache.InformerSynced
@@ -46,10 +46,14 @@ var _ Interface = &Controller{}
 // NewController creates a new Controller
 func NewController(name string) *Controller {
 	return &Controller{
-		name:            name,
-		workers:         utilpointer.Int(2),
-		enqueueFunc:     DefaultEnqueueFunc,
-		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), name),
+		name:        name,
+		workers:     utilpointer.Int(2),
+		enqueueFunc: DefaultEnqueueFunc,
+		queue: workqueue.NewRateLimitingQueueWithConfig(
+			workqueue.DefaultControllerRateLimiter(),
+			workqueue.RateLimitingQueueConfig{
+				Name: name,
+			}),
 		informersSynced: []cache.InformerSynced{},
 	}
 }
@@ -58,6 +62,9 @@ func NewController(name string) *Controller {
 func (c *Controller) WithWorkers(workers int) *Controller {
 	if c.runFlag {
 		panic(fmt.Errorf("can not mutate workers when controller %s is running", c.name))
+	}
+	if workers < 0 {
+		panic(fmt.Errorf("can not set negative workers %d", workers))
 	}
 
 	c.workers = utilpointer.Int(workers)
@@ -212,13 +219,13 @@ func (c *Controller) Enqueue(obj interface{}) {
 		utilruntime.HandleError(err)
 		return
 	}
-	c.workqueue.Add(key)
+	c.queue.Add(key)
 }
 
 // Run will start multiple workers to process work items from work queue. It will block until ctx is closed.
 func (c *Controller) Run(ctx context.Context) {
 	defer utilruntime.HandleCrash()
-	defer c.workqueue.ShutDown()
+	defer c.queue.ShutDown()
 
 	if c.handlerFunc == nil {
 		panic(fmt.Errorf("empty handlerFunc for controller %s", c.name))
@@ -260,29 +267,29 @@ func (c *Controller) runWorker() {
 
 // processNextWorkItem reads a single work item from the work queue
 func (c *Controller) processNextWorkItem() bool {
-	item, quit := c.workqueue.Get()
+	item, quit := c.queue.Get()
 	if quit {
 		return false
 	}
-	defer c.workqueue.Done(item)
+	defer c.queue.Done(item)
 
 	requeueAfter, err := c.handlerFunc(item)
 	if err == nil {
-		c.workqueue.Forget(item)
+		c.queue.Forget(item)
 		return true
 	}
 
 	if apierrors.IsNotFound(err) {
-		c.workqueue.Forget(item)
+		c.queue.Forget(item)
 		return true
 	}
 
 	utilruntime.HandleError(err)
 	// put the item back on the work queue to handle any transient errors
 	if requeueAfter != nil {
-		c.workqueue.AddAfter(item, *requeueAfter)
+		c.queue.AddAfter(item, *requeueAfter)
 	} else {
-		c.workqueue.AddRateLimited(item)
+		c.queue.AddRateLimited(item)
 	}
 	return true
 }
