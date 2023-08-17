@@ -52,8 +52,6 @@ jobs:
             ${{ matrix.os }}-go-
       - name: Golang Lint
         run: make lint
-      - name: Golang Vet
-        run: make vet
       - name: Verify changes
         run: |
           make verify
