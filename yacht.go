@@ -71,6 +71,16 @@ func (c *Controller) WithWorkers(workers int) *Controller {
 	return c
 }
 
+// WithQueue replaces the default queue with the desired one to store work items.
+func (c *Controller) WithQueue(queue workqueue.RateLimitingInterface) *Controller {
+	if c.runFlag {
+		panic(fmt.Errorf("can not mutate queue when controller %s is running", c.name))
+	}
+
+	c.queue = queue
+	return c
+}
+
 // WithEnqueueFilterFunc sets customize enqueueFilterFunc
 func (c *Controller) WithEnqueueFilterFunc(enqueueFilterFunc EnqueueFilterFunc) *Controller {
 	if c.runFlag {
@@ -99,7 +109,6 @@ func (c *Controller) DefaultResourceEventHandlerFuncs() cache.ResourceEventHandl
 			if c.applyEnqueueFilterFunc(nil, obj, cache.Added) {
 				c.Enqueue(obj)
 			}
-
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			if c.applyEnqueueFilterFunc(oldObj, newObj, cache.Updated) {
