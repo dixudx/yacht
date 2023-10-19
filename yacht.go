@@ -3,6 +3,7 @@ package yacht
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -39,6 +40,8 @@ type Controller struct {
 
 	// runFlag indicates whether the workers start working
 	runFlag bool
+
+	once sync.Once
 }
 
 var _ Interface = &Controller{}
@@ -231,12 +234,13 @@ func (c *Controller) Run(ctx context.Context) {
 		panic(fmt.Errorf("empty handlerFunc for controller %s", c.name))
 	}
 
-	if c.le != nil {
-		wait.UntilWithContext(ctx, c.le.Run, time.Duration(0))
-		return
-	}
-
-	c.run(ctx)
+	c.once.Do(func() {
+		if c.le != nil {
+			wait.UntilWithContext(ctx, c.le.Run, time.Duration(0))
+			return
+		}
+		c.run(ctx)
+	})
 }
 
 func (c *Controller) run(ctx context.Context) {
