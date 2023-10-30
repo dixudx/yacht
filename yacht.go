@@ -289,6 +289,11 @@ func (c *Controller) processNextWorkItem() bool {
 	requeueAfter, err := c.handlerFunc(item)
 	if err == nil {
 		c.queue.Forget(item)
+		if requeueAfter != nil {
+			// Sometimes we may want to re-visit this object after a while.
+			// Put the item back on the work queue with delay.
+			c.queue.AddAfter(item, *requeueAfter)
+		}
 		return true
 	}
 
