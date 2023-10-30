@@ -3,7 +3,7 @@ module github.com/dixudx/yacht/examples/use-leader-election
 go 1.19
 
 require (
-	github.com/dixudx/yacht v0.5.0
+	github.com/dixudx/yacht v0.7.0
 	k8s.io/apimachinery v0.27.2
 	k8s.io/client-go v0.27.2
 	k8s.io/klog/v2 v2.90.1
