@@ -160,7 +160,11 @@ func (c *Controller) applyEnqueueFilterFunc(oldObj, newObj interface{}, operatio
 		return false
 	}
 
-	utils.DepthLogging(nil, "info", fmt.Sprintf("[%s] enqueue resource", operation), oldObj)
+	if operation == cache.Deleted {
+		utils.DepthLogging(nil, "info", fmt.Sprintf("[%s] enqueue resource", operation), oldObj)
+	} else {
+		utils.DepthLogging(nil, "info", fmt.Sprintf("[%s] enqueue resource", operation), newObj)
+	}
 	return true
 }
 
